@@ -22,12 +22,16 @@
 
 ;;; Commentary:
 
-;; Simple mode to interact with OMDb API with some extra convenient functions.
+;; Insert JSDoc function comments and arbitrary typedefs easily.
 
 ;;; Code:
 
+;; Some important files:
 ;; https://github.com/tree-sitter/tree-sitter-javascript/blob/master/src/grammar.json
 ;; https://github.com/tree-sitter/tree-sitter-javascript/blob/master/src/node-types.json
+
+(defcustom jsdoc-append-dash t
+  "Wheter to append \" - \" after @param, @returns etc. to enhance readability.")
 
 (defun jsdoc ()
   (interactive)
@@ -45,14 +49,10 @@
       (jsdoc--insert-line col 'mid 'returns returns))
     (jsdoc--insert-line col 'end nil)))
 
-(defvar jsdoc-append-dash t
-  "Wheter to append \" - \" after @param, @returns etc. to enhance readability.")
-
 (defun jsdoc--insert-line (col-no w tag &optional it)
-  (interactive)
   (let* ((col (s-repeat col-no " "))
          (tag-text (case tag
-                     ('param (format "@param {%s} %s " (plist-get it :type) (plist-get it :name)))
+                     ('param (jsdoc--format-param it))
                      ('throws (format "@throws {%s} " it))
                      ('returns (format "@returns {%s} " it))
                      (otherwise nil)))
@@ -66,6 +66,14 @@
                   (otherwise " * "))))
     (move-beginning-of-line nil)
     (insert (format "%s%s%s\n" (or col "") (or start "") (or tag-text-fixed "")))))
+
+(defun jsdoc--format-param (it)
+  (format
+   "@param {%s} %s "
+   (plist-get it :type)
+   (if (plist-get it :default)
+       (format "[%s=%s]" (plist-get it :name) (plist-get it :default))
+     (plist-get it :name))))
 
 (defun jsdoc-generate ()
   (let* ((curr-node (tsc-get-parent (tree-sitter-node-at-point)))
@@ -96,8 +104,8 @@
      :throws (jsdoc-get-throw-type fn)
      :params (--map (jsdoc-parse-param it) (tsc-named-children params)))))
 
-;; (:name "var ise name" :value "var ise value" :type "inferred type" :)
 (defun jsdoc-parse-param (param)
+  "Parse PARAM and return it's name with type and the default value if it exists."
   (case (tsc-node-type param)
     ('identifier
      (list
@@ -110,7 +118,7 @@
     ('assignment_pattern
      (list
       :name (plist-get (jsdoc-parse-param (tsc-get-child-by-field param :left)) :name)
-      :default (tsc-get-child-by-field param :right)
+      :default (tsc-node-text (tsc-get-child-by-field param :right))
       :type (jsdoc-infer-type (tsc-get-child-by-field param :right))))
     ('array_pattern
      (list
@@ -128,14 +136,19 @@
 (defun jsdoc-infer-type (node)
   (case (tsc-node-type node)
     ('identifier (jsdoc-infer-identifier node))
+    ('true "boolean")
+    ('false "boolean")
     ('number "number")
     ('string "string")
     ('array "any[]")
     ('object "object")
     ('new_expression (jsdoc-infer-type (tsc-get-nth-named-child node 0)))
     ('call_expression (jsdoc-infer-type (tsc-get-nth-named-child node 0)))
-    ;; remove following
-    (otherwise (format "any{%s}" (tsc-node-type node)))))
+    ('binary_expression (jsdoc-infer-binary-expression node))
+    (otherwise "any")))
+
+(defun jsdoc-infer-binary-expression (node)
+  (format "TODO"))
 
 (defun jsdoc-infer-identifier (node)
   "Return given identifier NODE type.  `X' if `X()', otherwise `any'."
@@ -146,18 +159,16 @@
         (tsc-node-text node)
       "any")))
 
-;; todo: arrow func with one liner
+;; TODO: arrow func with one liner
 (defun jsdoc-get-return-type (node)
-  (interactive)
   (-->
    (jsdoc-get-returned-type-of-statement node 'return_statement)
    (when it
-     (pcase (tsc-node-text (tsc-get-nth-child fn 0))
+     (pcase (tsc-node-text (tsc-get-nth-child node 0))
        ("async" (format "Promise<%s>" it))
        (otherwise it)))))
 
 (defun jsdoc-get-throw-type (node)
-  (interactive)
   (-->
    (jsdoc-get-returned-type-of-statement node 'throw_statement)
    (if (and it (s-contains? "|" it))
@@ -165,7 +176,7 @@
      it)))
 
 (defun jsdoc-get-returned-type-of-statement (node stmt)
-  (interactive)
+  "Find the STMT somewhere under NODE and return the type."
   (-->
    (tsc-find-descendants-with-type node stmt)
    (--map (jsdoc-infer-type (tsc-get-nth-child it 1)) it)
@@ -182,11 +193,9 @@
   (tsc-node-text (tsc-get-child-by-field node prop)))
 
 (defun tsc-children (node)
-  (interactive)
   (--map (tsc-get-nth-child node it) (number-sequence 0 (1- (tsc-count-children node)))))
 
 (defun tsc-named-children (node)
-  (interactive)
   (--map (tsc-get-nth-named-child node it) (number-sequence 0 (1- (tsc-count-named-children node)))))
 
 (defun tsc-find-descendants-with-type (node type)
@@ -198,5 +207,4 @@
 ;; debg
 
 (defun tsc-children-types (node)
-  (interactive)
   (--map (tsc-node-type it) (tsc-children node)))
