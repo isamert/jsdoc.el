@@ -97,12 +97,13 @@
 
 
 (defun jsdoc-parse-arrow-function (fn name)
-  (let* ((params (tsc-get-child-by-field fn :parameters)))
+  (let* ((params (or (tsc-get-child-by-field fn :parameters) (tsc-get-nth-child fn 0))))
+    (message "%s here ---------- %s" params (tsc-node-text params))
     (list
      :name name
      :returns (jsdoc-get-return-type fn)
      :throws (jsdoc-get-throw-type fn)
-     :params (--map (jsdoc-parse-param it) (tsc-named-children params)))))
+     :params (--map (jsdoc-parse-param it) (or (tsc-named-children params) (list params))))))
 
 (defun jsdoc-parse-param (param)
   "Parse PARAM and return it's name with type and the default value if it exists."
