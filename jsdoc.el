@@ -5,7 +5,7 @@
 ;; Author: Isa Mert Gurbuz <isamert@protonmail.com>
 ;; Version: 0.1
 ;; URL: https://github.com/isamert/jsdoc.el
-;; Package-Requires: ((emacs "25.1") (dash "2.11.0") (s "1.12.0") (tsc "0.13.1"))
+;; Package-Requires: ((emacs "25.1") (dash "2.11.0") (s "1.12.0") (tree-sitter "0.15.1"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -29,6 +29,10 @@
 ;; Some important files:
 ;; https://github.com/tree-sitter/tree-sitter-javascript/blob/master/src/grammar.json
 ;; https://github.com/tree-sitter/tree-sitter-javascript/blob/master/src/node-types.json
+
+(require 's)
+(require 'dash)
+(require 'tree-sitter)
 
 (defcustom jsdoc-append-dash t
   "Wheter to append \" - \" after @param, @returns etc. to enhance readability.")
