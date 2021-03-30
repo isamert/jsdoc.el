@@ -33,6 +33,7 @@
 (defcustom jsdoc-append-dash t
   "Wheter to append \" - \" after @param, @returns etc. to enhance readability.")
 
+;;;###autoload
 (defun jsdoc ()
   (interactive)
   (let* ((meta (jsdoc-generate))
