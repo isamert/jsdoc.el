@@ -7,12 +7,21 @@ Inserts [[https://jsdoc.app/][JSDoc]] function comments/typedefs easily. It also
 I was trying to find something to do with [[https://github.com/ubolonton/emacs-tree-sitter][tree-sitter]] to learn it and I like to document my code. There you have it.
 
 * Usage
-Use the interactive command =jsdoc=. If the cursor is on a function definition, it inserts a JSDoc style function documentation comment. If the cursor is on a JavaScript object, it inserts a JSDoc style =@typedef=.
+Use the interactive command =jsdoc=. If the cursor is on a function definition, it inserts a JSDoc style function documentation comment. If the cursor is on a JavaScript object, it inserts a JSDoc =@typedef=.
+
+* Installation
+#+begin_src emacs-lisp
+  (use-package jsdoc
+    :ensure t
+    :quelpa (jsdoc
+             :fetcher github
+             :repo "isamert/jsdoc.el"))
+#+end_src
 
 * Customization
 - ...
 - ...
 
 * Similar packages
-- [[https://github.com/ananthakumaran/tide][ananthakumaran/tide]] :: The command =tide-jsdoc-template= inserts a JSDoc template for your function. It's meant to be simple, no advanced stuff.
+- [[https://github.com/ananthakumaran/tide][ananthakumaran/tide]] :: The command =tide-jsdoc-template= inserts a JSDoc template for your function. It's meant to be simple, no advanced stuff. It also requires ~tide-mode~ enabled (which runs ~tsserver~).
 - [[https://github.com/mooz/js-doc][mooz/js-doc]] ::  Another package in the spirit of this one. Seems to have quite advanced stuff but didn't get it to work. Haven't got updated for a while.
