@@ -99,7 +99,6 @@
 
 (defun jsdoc-parse-arrow-function (fn name)
   (let* ((params (or (tsc-get-child-by-field fn :parameters) (tsc-get-nth-child fn 0))))
-    (message "%s here ---------- %s" params (tsc-node-text params))
     (list
      :name name
      :returns (jsdoc-get-return-type fn)
@@ -161,21 +160,22 @@
         (tsc-node-text node)
       "any")))
 
-;; TODO: arrow func with one liner
 (defun jsdoc-get-return-type (node)
-  (-->
-   (jsdoc-get-returned-type-of-statement node 'return_statement)
-   (when it
-     (pcase (tsc-node-text (tsc-get-nth-child node 0))
-       ("async" (format "Promise<%s>" it))
-       (otherwise it)))))
+  "Return the return type of given NODE."
+  (-if-let (return-type (jsdoc-get-returned-type-of-statement node 'return_statement))
+      (pcase (tsc-node-text (tsc-get-nth-child node 0))
+        ("async" (format "Promise<%s>" return-type))
+        (otherwise return-type))
+    (progn
+      (jsdoc-infer-type (tsc-get-child-by-field node :body)))))
 
 (defun jsdoc-get-throw-type (node)
-  (-->
-   (jsdoc-get-returned-type-of-statement node 'throw_statement)
-   (if (and it (s-contains? "|" it))
-       (format "(%s)" it)
-     it)))
+  "Retun throw type of given NODE if it throws anythng.
+Otherwise return nil."
+  (--> (jsdoc-get-returned-type-of-statement node 'throw_statement)
+    (if (and it (s-contains? "|" it))
+        (format "(%s)" it)
+      it)))
 
 (defun jsdoc-get-returned-type-of-statement (node stmt)
   "Find the STMT somewhere under NODE and return the type."
