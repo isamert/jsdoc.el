@@ -84,25 +84,29 @@
 (defun jsdoc--generate ()
   (let* ((curr-node (tsc-get-parent (tree-sitter-node-at-point)))
          (curr-node-type (tsc-node-type curr-node)))
-    (case curr-node-type
-      ('lexical_declaration (jsdoc--parse-lexical-declaration curr-node))
-      ('method_definition (jsdoc--parse-method-definition curr-node))
-      ('function_declaration (jsdoc--parse-function-declaration curr-node)))))
+    (pcase curr-node-type
+      ('lexical_declaration
+       (jsdoc--parse-lexical-declaration curr-node))
+      ((or 'function_declaration 'method_definition)
+       (jsdoc--parse-generic-function-declaration curr-node)))))
 
 (defun jsdoc--parse-lexical-declaration (node)
   (let* ((fn-def (tsc-get-nth-named-child node 0))
          (name (jsdoc--tsc-child-text fn-def :name))
          (fn (tsc-get-nth-named-child fn-def 1))
          (fn-type (tsc-node-type fn)))
-    (case fn-type
-      ('arrow_function (jsdoc--parse-arrow-function fn name)))))
+    (pcase fn-type
+      ((or 'arrow_function 'function) (jsdoc--parse-generic-function fn name)))))
+
+(defun jsdoc--parse-generic-function-declaration (node)
+  (let* ((name (jsdoc--tsc-child-text node :name)))
+    (jsdoc--parse-generic-function node name)))
 
 (defun jsdoc--parse-method-definition (node)
   (let* ((name (jsdoc--tsc-child-text node :name)))
-    (jsdoc--parse-arrow-function node name)))
+    (jsdoc--parse-generic-function node name)))
 
-
-(defun jsdoc--parse-arrow-function (fn name)
+(defun jsdoc--parse-generic-function (fn name)
   (let* ((params (or (tsc-get-child-by-field fn :parameters) (tsc-get-nth-child fn 0))))
     (list
      :name name
