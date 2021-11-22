@@ -3,7 +3,7 @@
 ;; Copyright (C) 2021 Isa Mert Gurbuz
 
 ;; Author: Isa Mert Gurbuz <isamert@protonmail.com>
-;; Version: 0.1
+;; Version: 0.2
 ;; URL: https://github.com/isamert/jsdoc.el
 ;; Package-Requires: ((emacs "25.1") (dash "2.11.0") (s "1.12.0") (tree-sitter "0.15.1"))
 
