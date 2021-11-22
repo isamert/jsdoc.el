@@ -57,19 +57,19 @@
 
 (defun jsdoc--insert-line (col-no w tag &optional it)
   (let* ((col (s-repeat col-no " "))
-         (tag-text (case tag
+         (tag-text (pcase tag
                      ('param (jsdoc--format-param it))
                      ('throws (format "@throws {%s} " it))
                      ('returns (format "@returns {%s} " it))
-                     (otherwise nil)))
+                     (_ nil)))
          (tag-text-fixed (if (and jsdoc-append-dash tag-text)
                              (s-concat tag-text "- ")
                            tag-text))
-         (start (case w
+         (start (pcase w
                   ('beg "/**" )
                   ('end " */")
                   ('empty " * ")
-                  (otherwise " * "))))
+                  (_ " * "))))
     (move-beginning-of-line nil)
     (insert (format "%s%s%s\n" (or col "") (or start "") (or tag-text-fixed "")))))
 
@@ -116,7 +116,7 @@
 
 (defun jsdoc--parse-param (param)
   "Parse PARAM and return it's name with type and the default value if it exists."
-  (case (tsc-node-type param)
+  (pcase (tsc-node-type param)
     ('identifier
      (list
       :name (tsc-node-text param)
@@ -144,7 +144,7 @@
       :type "...any"))))
 
 (defun jsdoc--infer-type (node)
-  (case (tsc-node-type node)
+  (pcase (tsc-node-type node)
     ('identifier (jsdoc--infer-identifier node))
     ('true "boolean")
     ('false "boolean")
@@ -155,7 +155,7 @@
     ('new_expression (jsdoc--infer-type (tsc-get-nth-named-child node 0)))
     ('call_expression (jsdoc--infer-type (tsc-get-nth-named-child node 0)))
     ('binary_expression (jsdoc--infer-binary-expression node))
-    (otherwise "any")))
+    (_ "any")))
 
 (defun jsdoc--infer-binary-expression (node)
   (format "TODO"))
@@ -174,7 +174,7 @@
   (-if-let (return-type (jsdoc--get-returned-type-of-statement node 'return_statement))
       (pcase (tsc-node-text (tsc-get-nth-child node 0))
         ("async" (format "Promise<%s>" return-type))
-        (otherwise return-type))
+        (_ return-type))
     (progn
       (jsdoc--infer-type (tsc-get-child-by-field node :body)))))
 
