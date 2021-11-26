@@ -6,21 +6,29 @@ Inserts [[https://jsdoc.app/][JSDoc]] function comments/typedefs easily. It also
 * Why?
 I was trying to find something to do with [[https://github.com/ubolonton/emacs-tree-sitter][tree-sitter]] to learn it and I like to document my code. There you have it.
 
+- Also: For functions with JSDocs, LSP-mode will show us the types and function description in a neato pop-up to the side.
+
 * Usage
 Use the interactive command =jsdoc=. If the cursor is on a function definition, it inserts a JSDoc style function documentation comment. If the cursor is on a JavaScript object, it inserts a JSDoc =@typedef=.
 
 * Installation
+Not yet on Melpa, but if you have `quelpa/use-package`:
 #+begin_src emacs-lisp
-  (use-package jsdoc
-    :ensure t
-    :quelpa (jsdoc
-             :fetcher github
-             :repo "isamert/jsdoc.el"))
+;; [Minimal Type Inference] When default values are provided, then we can infer
+;; the type of the arguments.
+;;
+;; Use: Run “M-x jsdoc” on a JS function.
+;;
+(use-package jsdoc
+  :ensure t
+  :quelpa (jsdoc
+           :fetcher github
+           :repo "isamert/jsdoc.el")
+  :config
+   (use-package tree-sitter)        ;; Required dependencies
+   (use-package tree-sitter-langs)
+  :hook (js-mode . tree-sitter-mode))
 #+end_src
-
-* Customization
-- ...
-- ...
 
 * Similar packages
 - [[https://github.com/ananthakumaran/tide][ananthakumaran/tide]] :: The command =tide-jsdoc-template= inserts a JSDoc template for your function. It's meant to be simple, no advanced stuff. It also requires ~tide-mode~ enabled (which runs ~tsserver~).
