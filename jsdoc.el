@@ -1,11 +1,12 @@
 ;;; jsdoc.el --- Insert JSDoc comments -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2021 Isa Mert Gurbuz
+;; Copyright (C) 2023 Demis Balbach
 
 ;; Author: Isa Mert Gurbuz <isamert@protonmail.com>
-;; Version: 0.2
+;; Version: 0.3
 ;; URL: https://github.com/isamert/jsdoc.el
-;; Package-Requires: ((emacs "25.1") (dash "2.11.0") (s "1.12.0") (tree-sitter "0.15.1"))
+;; Package-Requires: ((emacs "29.1") (dash "2.11.0") (s "1.12.0"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -28,7 +29,7 @@
 
 (require 's)
 (require 'dash)
-(require 'tree-sitter)
+(require 'treesit)
 
 (defcustom jsdoc-append-dash t
   "Wheter to append \" - \" after @param, @returns etc. to enhance readability.")
@@ -82,32 +83,32 @@
      (plist-get it :name))))
 
 (defun jsdoc--generate ()
-  (let* ((curr-node (tsc-get-parent (tree-sitter-node-at-point)))
-         (curr-node-type (tsc-node-type curr-node)))
+  (let* ((curr-node (treesit-node-parent (treesit-node-at (point))))
+         (curr-node-type (treesit-node-type curr-node)))
     (pcase curr-node-type
-      ('lexical_declaration
+      ("lexical_declaration"
        (jsdoc--parse-lexical-declaration curr-node))
-      ((or 'function_declaration 'method_definition)
+      ((or "function_declaration" "method_definition")
        (jsdoc--parse-generic-function-declaration curr-node)))))
 
 (defun jsdoc--parse-lexical-declaration (node)
-  (let* ((fn-def (tsc-get-nth-named-child node 0))
-         (name (jsdoc--tsc-child-text fn-def :name))
-         (fn (tsc-get-nth-named-child fn-def 1))
-         (fn-type (tsc-node-type fn)))
+  (let* ((fn-def (treesit-node-child node 0 t))
+         (name (jsdoc--tsc-child-text fn-def "name"))
+         (fn (treesit-node-child fn-def 1 t))
+         (fn-type (treesit-node-type fn)))
     (pcase fn-type
-      ((or 'arrow_function 'function) (jsdoc--parse-generic-function fn name)))))
+      ((or "arrow_function" "function") (jsdoc--parse-generic-function fn name)))))
 
 (defun jsdoc--parse-generic-function-declaration (node)
-  (let* ((name (jsdoc--tsc-child-text node :name)))
+  (let* ((name (jsdoc--tsc-child-text node "name")))
     (jsdoc--parse-generic-function node name)))
 
 (defun jsdoc--parse-method-definition (node)
-  (let* ((name (jsdoc--tsc-child-text node :name)))
+  (let* ((name (jsdoc--tsc-child-text node "name")))
     (jsdoc--parse-generic-function node name)))
 
 (defun jsdoc--parse-generic-function (fn name)
-  (let* ((params (or (tsc-get-child-by-field fn :parameters) (tsc-get-nth-child fn 0))))
+  (let* ((params (or (treesit-node-child-by-field-name fn "parameters") (treesit-node-child fn 0))))
     (list
      :name name
      :returns (jsdoc--get-return-type fn)
@@ -116,67 +117,96 @@
 
 (defun jsdoc--parse-param (param)
   "Parse PARAM and return it's name with type and the default value if it exists."
-  (pcase (tsc-node-type param)
-    ('identifier
+  (pcase (treesit-node-type param)
+    ("identifier"
      (list
-      :name (tsc-node-text param)
-      :type "any"))
-    ('shorthand_property_identifier
+      :name (treesit-node-text param)
+      :type "*"))
+    ("shorthand_property_identifier_pattern"
      (list
-      :name (tsc-node-text param)
-      :type "any"))
-    ('assignment_pattern
+      :name (treesit-node-text param)
+      :type "*"))
+    ("assignment_pattern"
      (list
-      :name (plist-get (jsdoc--parse-param (tsc-get-child-by-field param :left)) :name)
-      :default (tsc-node-text (tsc-get-child-by-field param :right))
-      :type (jsdoc--infer-type (tsc-get-child-by-field param :right))))
-    ('array_pattern
-     (list
-      :name 'unnamed-param
-      :type (--reduce (s-concat acc "," it) (--map (plist-get (jsdoc--parse-param it) :type) (jsdoc--tsc-named-children param)))))
-    ('object_pattern
+      :name (plist-get (jsdoc--parse-param (treesit-node-child-by-field-name param "left")) :name)
+      :default (treesit-node-text (treesit-node-child-by-field-name param "right"))
+      :type (jsdoc--infer-type (treesit-node-child-by-field-name param "right"))))
+    ("array_pattern"
      (list
       :name 'unnamed-param
-      :type (--reduce (s-concat acc "," it) (--map (plist-get (jsdoc--parse-param it) :type) (jsdoc--tsc-named-children param)))))
-    ('rest_parameter
+      :type (jsdoc--infer-array-type (jsdoc--tsc-named-children param))))
+    ("object_pattern"
      (list
-      :name (tsc-node-text (tsc-get-nth-named-child param 0))
-      :type "...any"))))
+      :name 'unnamed-param
+      :type "Object"))
+    ("rest_pattern"
+     (list
+      :name (treesit-node-text (treesit-node-child param 0 t))
+      :type "...*"))))
 
 (defun jsdoc--infer-type (node)
-  (pcase (tsc-node-type node)
-    ('identifier (jsdoc--infer-identifier node))
-    ('true "boolean")
-    ('false "boolean")
-    ('number "number")
-    ('string "string")
-    ('array "any[]")
-    ('object "object")
-    ('new_expression (jsdoc--infer-type (tsc-get-nth-named-child node 0)))
-    ('call_expression (jsdoc--infer-type (tsc-get-nth-named-child node 0)))
-    ('binary_expression (jsdoc--infer-binary-expression node))
-    (_ "any")))
+  (pcase (treesit-node-type node)
+    ("identifier" (jsdoc--infer-identifier node))
+    ("true" "boolean")
+    ("false" "boolean")
+    ("number" "number")
+    ("string" "string")
+    ("array" "*[]")
+    ("object" "object")
+    ("new_expression" (jsdoc--infer-type (treesit-node-child node 0 t)))
+    ("call_expression" (jsdoc--infer-type (treesit-node-child node 0 t)))
+    ("arrow_function" (jsdoc--infer-closure-type node))
+    ("binary_expression" (jsdoc--infer-binary-expression node))
+    (_ "*")))
+
+(defun jsdoc--infer-closure-type (node)
+  "Return the inferred type of the given closure NODE."
+  (let* ((fn (jsdoc--parse-generic-function node ""))
+         (params (plist-get fn :params))
+
+         ;; Reduce the list of params if more than 1
+         (list (if (< 1 (length params))
+                   (--reduce (format "%s, %s"
+                                     (or (plist-get acc :type)
+                                         acc)
+                                     (plist-get it :type))
+                             params)
+                 (plist-get (car params) :type)
+                 ))
+         (returns (plist-get fn :returns)))
+    (concat "function(" list "): " returns)))
+
+(defun jsdoc--infer-array-type (node)
+  "Return the inferred type of the given array NODE."
+  (let* ((params (--reduce
+                  (if (eq acc it)
+                      acc
+                    (s-concat acc "|" it))
+                  (--map (plist-get (jsdoc--parse-param it) :type) node))))
+    (if (string-match-p (regexp-quote "|") params)
+        (concat "(" params ")" "[]")
+      (concat params "[]"))))
 
 (defun jsdoc--infer-binary-expression (node)
   (format "TODO"))
 
 (defun jsdoc--infer-identifier (node)
-  "Return given identifier NODE type.  `X' if `X()', otherwise `any'."
-  (let* ((next-sibling (tsc-get-next-named-sibling node)))
+  "Return given identifier NODE type.  `X' if `X()', otherwise `*'."
+  (let* ((next-sibling (treesit-node-next-sibling node t)))
     (if (and next-sibling
-             (equal (tsc-node-type next-sibling) 'arguments)
-             (s-uppercase? (substring (tsc-node-text node) 0 1)))
-        (tsc-node-text node)
-      "any")))
+             (equal (treesit-node-type next-sibling) 'arguments)
+             (s-uppercase? (substring (treesit-node-text node) 0 1)))
+        (treesit-node-text node)
+      "*")))
 
 (defun jsdoc--get-return-type (node)
   "Return the return type of given NODE."
   (-if-let (return-type (jsdoc--get-returned-type-of-statement node 'return_statement))
-      (pcase (tsc-node-text (tsc-get-nth-child node 0))
+      (pcase (treesit-node-text (treesit-node-child node 0))
         ("async" (format "Promise<%s>" return-type))
         (_ return-type))
     (progn
-      (jsdoc--infer-type (tsc-get-child-by-field node :body)))))
+      (jsdoc--infer-type (treesit-node-child-by-field-name node "body")))))
 
 (defun jsdoc--get-throw-type (node)
   "Retun throw type of given NODE if it throws anythng.
@@ -190,7 +220,7 @@ Otherwise return nil."
   "Find the STMT somewhere under NODE and return the type."
   (-->
    (jsdoc--tsc-find-descendants-with-type node stmt)
-   (--map (jsdoc--infer-type (tsc-get-nth-child it 1)) it)
+   (--map (jsdoc--infer-type (treesit-node-child it 1)) it)
    (-distinct it)
    (when it
      (--reduce (format "%s | %s" acc it) it))))
@@ -201,16 +231,16 @@ Otherwise return nil."
 ;;
 
 (defun jsdoc--tsc-child-text (node prop)
-  (tsc-node-text (tsc-get-child-by-field node prop)))
+  (treesit-node-text (treesit-node-child-by-field-name node prop)))
 
 (defun jsdoc--tsc-children (node)
-  (--map (tsc-get-nth-child node it) (number-sequence 0 (1- (tsc-count-children node)))))
+  (--map (treesit-node-child node it) (number-sequence 0 (1- (treesit-node-child-count node)))))
 
 (defun jsdoc--tsc-named-children (node)
-  (--map (tsc-get-nth-named-child node it) (number-sequence 0 (1- (tsc-count-named-children node)))))
+  (--map (treesit-node-child node it t) (number-sequence 0 (1- (treesit-node-child-count node t)))))
 
 (defun jsdoc--tsc-find-descendants-with-type (node type)
-  (-flatten (--map (if (equal type (tsc-node-type it))
+  (-flatten (--map (if (equal type (treesit-node-type it))
                        it
                      (jsdoc--tsc-find-descendants-with-type it type))
                    (jsdoc--tsc-children node))))
