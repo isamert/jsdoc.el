@@ -1,33 +1,32 @@
 * jsdoc.el
-Inserts [[https://jsdoc.app/][JSDoc]] function comments/typedefs easily. It also tries to infer types by itself while doing that. Type inference is quite primitive.
+This package provides an easy way to insert [[https://jsdoc.app/][JSDoc]] function comments and typedefs. It leverages a variety of techniques to generate documentation as much as possible without human interaction, including type inference and other similar approaches.
 
 [[file:./jsdoc.gif]]
 
-* Why?
-I was trying to find something to do with [[https://github.com/ubolonton/emacs-tree-sitter][tree-sitter]] to learn it and I like to document my code. There you have it.
-
-- Also: For functions with JSDocs, LSP-mode will show us the types and function description in a neato pop-up to the side.
+Please note that this package is only compatible with Emacs 29 or newer versions that support tree-sitter. If you are using Emacs 28 or an earlier version, please refer to the [[https://github.com/isamert/jsdoc.el/tree/emacs-28-and-below][emacs-28-and-below]] branch, which utilizes the [[https://github.com/ubolonton/emacs-tree-sitter][tree-sitter]] package.
 
 * Usage
-Use the interactive command =jsdoc=. If the cursor is on a function definition, it inserts a JSDoc style function documentation comment. If the cursor is on a JavaScript object, it inserts a JSDoc =@typedef=.
+To use this package, you can call the interactive command =jsdoc=. If your cursor is on a function definition, the command will insert a JSDoc-style function documentation comment. If your cursor is on a JavaScript object, the command will insert a JSDoc =@typedef= comment.
 
 * Installation
-Not yet on Melpa, but if you have `quelpa/use-package`:
+Currently, the ~jsdoc.el~ package is not available on any Emacs package repository. To use it, you'll need to download the package and add it to your ~load-path~. Once you've done that, you can load the package with ~(require 'jsdoc)~.
+
+Alternatively, you can use the ~straight~ or ~quelpa~ package managers in conjunction with ~use-package~.
+
+To use ~quelpa~, add the following code to your Emacs configuration:
+
 #+begin_src emacs-lisp
-;; [Minimal Type Inference] When default values are provided, then we can infer
-;; the type of the arguments.
-;;
-;; Use: Run “M-x jsdoc” on a JS function.
-;;
-(use-package jsdoc
-  :ensure t
-  :quelpa (jsdoc
-           :fetcher github
-           :repo "isamert/jsdoc.el")
-  :config
-   (use-package tree-sitter)        ;; Required dependencies
-   (use-package tree-sitter-langs)
-  :hook (js-mode . tree-sitter-mode))
+  (use-package jsdoc
+    :ensure t
+    :quelpa (jsdoc :fetcher github :repo "isamert/jsdoc.el"))
+#+end_src
+
+If you prefer ~straight~, use the following code instead:
+
+#+begin_src emacs-lisp
+  (use-package jsdoc
+    :ensure t
+    :straight (:host github :repo "isamert/jsdoc.el"))
 #+end_src
 
 * Similar packages
