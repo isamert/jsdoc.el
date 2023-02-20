@@ -162,19 +162,9 @@
 (defun jsdoc--infer-closure-type (node)
   "Return the inferred type of the given closure NODE."
   (let* ((fn (jsdoc--parse-generic-function node ""))
-         (params (plist-get fn :params))
-
-         ;; Reduce the list of params if more than 1
-         (list (if (< 1 (length params))
-                   (--reduce (format "%s, %s"
-                                     (or (plist-get acc :type)
-                                         acc)
-                                     (plist-get it :type))
-                             params)
-                 (plist-get (car params) :type)
-                 ))
+         (params (s-join ", " (--map (plist-get it :type) (plist-get fn :params))))
          (returns (plist-get fn :returns)))
-    (concat "function(" list "): " returns)))
+    (concat "function(" params "): " returns)))
 
 (defun jsdoc--infer-array-type (node)
   "Return the inferred type of the given array NODE."
@@ -194,14 +184,14 @@
   "Return given identifier NODE type.  `X' if `X()', otherwise `*'."
   (let* ((next-sibling (treesit-node-next-sibling node t)))
     (if (and next-sibling
-             (equal (treesit-node-type next-sibling) 'arguments)
+             (equal (treesit-node-type next-sibling) "arguments")
              (s-uppercase? (substring (treesit-node-text node) 0 1)))
         (treesit-node-text node)
       "*")))
 
 (defun jsdoc--get-return-type (node)
   "Return the return type of given NODE."
-  (-if-let (return-type (jsdoc--get-returned-type-of-statement node 'return_statement))
+  (-if-let (return-type (jsdoc--get-returned-type-of-statement node "return_statement"))
       (pcase (treesit-node-text (treesit-node-child node 0))
         ("async" (format "Promise<%s>" return-type))
         (_ return-type))
@@ -211,7 +201,7 @@
 (defun jsdoc--get-throw-type (node)
   "Retun throw type of given NODE if it throws anythng.
 Otherwise return nil."
-  (--> (jsdoc--get-returned-type-of-statement node 'throw_statement)
+  (--> (jsdoc--get-returned-type-of-statement node "throw_statement")
     (if (and it (s-contains? "|" it))
         (format "(%s)" it)
       it)))
