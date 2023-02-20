@@ -1,9 +1,9 @@
 ;;; jsdoc.el --- Insert JSDoc comments -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2021 Isa Mert Gurbuz
-;; Copyright (C) 2023 Demis Balbach
+;; Copyright (C) 2023 Demis Balbach, Isa Mert Gurbuz
 
-;; Author: Isa Mert Gurbuz <isamert@protonmail.com>
+;; Author: Isa Mert Gurbuz <isamertgurbuz@gmail.com>
 ;; Version: 0.3
 ;; URL: https://github.com/isamert/jsdoc.el
 ;; Package-Requires: ((emacs "29.1") (dash "2.11.0") (s "1.12.0"))
@@ -23,7 +23,10 @@
 
 ;;; Commentary:
 
-;; Insert JSDoc function comments and arbitrary typedefs easily.
+;; This package provides an easy way to insert JSDoc function comments
+;; and typedefs. It leverages a variety of techniques to generate
+;; documentation as much as possible without human interaction,
+;; including type inference and other similar approaches.
 
 ;;; Code:
 
@@ -31,8 +34,14 @@
 (require 'dash)
 (require 'treesit)
 
+(defgroup jsdoc nil
+  "A media player for Emacs."
+  :group 'tools)
+
 (defcustom jsdoc-append-dash t
-  "Wheter to append \" - \" after @param, @returns etc. to enhance readability.")
+  "Wheter to append \" - \" after @param, @returns etc. to enhance readability."
+  :type 'boolean
+  :group 'jsdoc)
 
 ;;;###autoload
 (defun jsdoc ()
