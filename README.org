@@ -1,4 +1,7 @@
-* jsdoc.el
+#+TITLE: jsdoc.el
+
+[[https://melpa.org/#/jsdoc][file:https://melpa.org/packages/jsdoc-badge.svg]]
+
 This package provides an easy way to insert [[https://jsdoc.app/][JSDoc]] function comments and typedefs. It leverages a variety of techniques to generate documentation as much as possible without human interaction, including type inference and other similar approaches.
 
 [[file:./jsdoc.gif]]
@@ -9,7 +12,7 @@ Please note that this package is only compatible with Emacs 29 or newer versions
 To use this package, you can call the interactive command =jsdoc=. If your cursor is on a function definition, the command will insert a JSDoc-style function documentation comment. If your cursor is on a JavaScript object, the command will insert a JSDoc =@typedef= comment.
 
 * Installation
-Currently, the ~jsdoc.el~ package is not available on any Emacs package repository. To use it, you'll need to download the package and add it to your ~load-path~. Once you've done that, you can load the package with ~(require 'jsdoc)~.
+jsdoc is available through [[https://melpa.org/#/jsdoc][MELPA]]. If you have it set up already, just do ~M-x package-install jsdoc~ and you are good to go. Otherwise please see [[https://melpa.org/#/getting-started][MELPA getting started]] page to learn how you can install packages through MELPA or see the following installation options.
 
 Alternatively, you can use the ~straight~ or ~quelpa~ package managers in conjunction with ~use-package~.
 
