@@ -39,7 +39,7 @@
   :group 'tools)
 
 (defcustom jsdoc-append-dash t
-  "Wheter to append \" - \" after @param, @returns etc. to enhance readability."
+  "Whether to append \" - \" after @param, @returns etc. to enhance readability."
   :type 'boolean
   :group 'jsdoc)
 
