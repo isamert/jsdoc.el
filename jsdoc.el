@@ -35,7 +35,7 @@
 (require 'treesit)
 
 (defgroup jsdoc nil
-  "A media player for Emacs."
+  "JSDoc helper for Emacs."
   :group 'tools)
 
 (defcustom jsdoc-append-dash t
