@@ -16,22 +16,16 @@ To use this package, you can call the interactive command =jsdoc=. If your curso
 * Installation
 jsdoc is available through [[https://melpa.org/#/jsdoc][MELPA]]. If you have it set up already, just do ~M-x package-install jsdoc~ and you are good to go. Otherwise please see [[https://melpa.org/#/getting-started][MELPA getting started]] page to learn how you can install packages through MELPA or see the following installation options.
 
-Alternatively, you can use the ~straight~ or ~quelpa~ package managers in conjunction with ~use-package~.
-
-To use ~quelpa~, add the following code to your Emacs configuration:
+Alternatively, you can use the [[https://github.com/radian-software/straight.el][straight]] or [[https://github.com/quelpa/quelpa-use-package][quelpa]] package managers in conjunction with ~use-package~.
 
 #+begin_src emacs-lisp
+  ;; Using straight
   (use-package jsdoc
-    :ensure t
-    :quelpa (jsdoc :fetcher github :repo "isamert/jsdoc.el"))
-#+end_src
-
-If you prefer ~straight~, use the following code instead:
-
-#+begin_src emacs-lisp
-  (use-package jsdoc
-    :ensure t
     :straight (:host github :repo "isamert/jsdoc.el"))
+
+  ;; Using quelpa
+  (use-package jsdoc
+    :quelpa (jsdoc :fetcher github :repo "isamert/jsdoc.el"))
 #+end_src
 
 * Similar packages
