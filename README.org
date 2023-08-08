@@ -4,6 +4,8 @@
 
 This package provides an easy way to insert [[https://jsdoc.app/][JSDoc]] function comments and typedefs. It leverages a variety of techniques to generate documentation as much as possible without human interaction, including type inference and other similar approaches.
 
+Also has basic TypeScript support, using [[https://tsdoc.org/][TSDoc]] style.
+
 [[file:./jsdoc.gif]]
 
 Please note that this package is only compatible with Emacs 29 or newer versions that support tree-sitter. If you are using Emacs 28 or an earlier version, please refer to the [[https://github.com/isamert/jsdoc.el/tree/emacs-28-and-below][emacs-28-and-below]] branch, which utilizes the [[https://github.com/ubolonton/emacs-tree-sitter][tree-sitter]] package.

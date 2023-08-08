@@ -50,28 +50,45 @@
   (let* ((meta (jsdoc--generate))
          (col (current-indentation))
          (params (plist-get meta :params))
+         (type-params (plist-get meta :type-params))
          (returns (plist-get meta :returns))
          (throws (plist-get meta :throws)))
     (jsdoc--insert-line col 'beg nil)
     (jsdoc--insert-line col 'empty nil)
+    (jsdoc--insert-line col 'skip nil)
     (--each params (jsdoc--insert-line col 'mid 'param it))
-    (when throws
-      (jsdoc--insert-line col 'mid 'throws throws))
+    (when type-params
+      (--each type-params (jsdoc--insert-line col 'mid 'typeParam it)))
     (when returns
       (jsdoc--insert-line col 'mid 'returns returns))
+    (when throws
+      (jsdoc--insert-line col 'empty nil)
+      (when (jsdoc--typescript?)
+        (jsdoc--insert-line col 'mid 'throws throws)
+        (jsdoc--insert-line col 'empty nil)))
     (jsdoc--insert-line col 'end nil)))
 
 ;; Some important resources:
 ;; https://github.com/tree-sitter/tree-sitter-javascript/blob/master/src/grammar.json
 ;; https://github.com/tree-sitter/tree-sitter-javascript/blob/master/src/node-types.json
 
+(defun jsdoc--typescript? ()
+  "Does current buffer contain TypeScript code?"
+  (-contains? '(tsx-ts-mode typescript-ts-mode) major-mode))
+
 (defun jsdoc--insert-line (col-no w tag &optional it)
   (let* ((col (s-repeat col-no " "))
          (tag-text (pcase tag
-                     ('param (jsdoc--format-param it))
-                     ('throws (format "@throws {%s} " it))
-                     ('returns (format "@returns {%s} " it))
-                     (_ nil)))
+                     ('param (if (jsdoc--typescript?)
+                                 (jsdoc--format-param-ts it)
+                               (jsdoc--format-param-js it)))
+                     ('throws (if (jsdoc--typescript?)
+                                  (format "@throws {@link %s} " it)
+                                (format "@throws {%s} " it)))
+                     ('returns (if (jsdoc--typescript?)
+                                   (format "@returns ")
+                                 (format "@returns {%s} " it)))
+                     ('typeParam (format "@typeParam %s " it))))
          (tag-text-fixed (if (and jsdoc-append-dash tag-text)
                              (s-concat tag-text "- ")
                            tag-text))
@@ -79,11 +96,17 @@
                   ('beg "/**" )
                   ('end " */")
                   ('empty " * ")
+                  ('skip " *")
                   (_ " * "))))
     (move-beginning-of-line nil)
     (insert (format "%s%s%s\n" (or col "") (or start "") (or tag-text-fixed "")))))
 
-(defun jsdoc--format-param (it)
+(defun jsdoc--format-param-ts (it)
+  (format
+   "@param %s "
+   (plist-get it :name)))
+
+(defun jsdoc--format-param-js (it)
   (format
    "@param {%s} %s "
    (plist-get it :type)
@@ -112,17 +135,24 @@
   (let* ((name (jsdoc--tsc-child-text node "name")))
     (jsdoc--parse-generic-function node name)))
 
-(defun jsdoc--parse-method-definition (node)
-  (let* ((name (jsdoc--tsc-child-text node "name")))
-    (jsdoc--parse-generic-function node name)))
-
 (defun jsdoc--parse-generic-function (fn name)
   (let* ((params (or (treesit-node-child-by-field-name fn "parameters") (treesit-node-child fn 0))))
     (list
      :name name
      :returns (jsdoc--get-return-type fn)
+     ;; TODO This should be a list, a function can throw multiple
+     ;; exceptions
      :throws (jsdoc--get-throw-type fn)
-     :params (--map (jsdoc--parse-param it) (or (jsdoc--tsc-named-children params) (list params))))))
+     :params (-map #'jsdoc--parse-param (or (jsdoc--tsc-named-children params) (list params)))
+     ;; TypeScript only
+     :type-params (-map
+                   #'treesit-node-text
+                   (ignore-errors
+                     (-some->> "type_parameters"
+                       (treesit-node-child-by-field-name fn)
+                       treesit-node-children
+                       (-drop 1)
+                       (-drop-last 1)))))))
 
 (defun jsdoc--parse-param (param)
   "Parse PARAM and return it's name with type and the default value if it exists."
@@ -151,7 +181,13 @@
     ("rest_pattern"
      (list
       :name (treesit-node-text (treesit-node-child param 0 t))
-      :type "...*"))))
+      :type "...*"))
+    ;; TypeScript parameter types. :type is not needed but I just add it anyway
+    ((or "required_parameter" "optional_parameter")
+     (list
+      :name (treesit-node-text (treesit-node-child param 0 t))
+      :type (treesit-node-text (treesit-node-child
+                                (treesit-node-child-by-field-name param "type") 0 t))))))
 
 (defun jsdoc--infer-type (node)
   (pcase (treesit-node-type node)
