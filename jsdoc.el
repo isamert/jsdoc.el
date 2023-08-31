@@ -56,7 +56,12 @@
     (jsdoc--insert-line col 'beg nil)
     (jsdoc--insert-line col 'empty nil)
     (jsdoc--insert-line col 'skip nil)
-    (--each params (jsdoc--insert-line col 'mid 'param it))
+    (-each params
+      (lambda (param)
+        (jsdoc--insert-line col 'mid 'param param)
+        (when-let (children (plist-get param :children))
+          (--each children
+            (jsdoc--insert-line col 'mid 'param `(:name ,(format "%s.%s" (plist-get param :name) (plist-get it :name)) ,@it))))))
     (when type-params
       (--each type-params (jsdoc--insert-line col 'mid 'typeParam it)))
     (when returns
@@ -172,22 +177,33 @@
       :type (jsdoc--infer-type (treesit-node-child-by-field-name param "right"))))
     ("array_pattern"
      (list
-      :name 'unnamed-param
+      :name 'x
       :type (jsdoc--infer-array-type (jsdoc--tsc-named-children param))))
+    ("object_assignment_pattern"
+     (list
+      :name (treesit-node-text (treesit-node-child-by-field-name param "left"))
+      :default (treesit-node-text (treesit-node-child-by-field-name param "right"))
+      :type (jsdoc--infer-type (treesit-node-child-by-field-name param "right"))))
     ("object_pattern"
      (list
-      :name 'unnamed-param
-      :type "Object"))
+      :name 'x
+      :type "Object"
+      :children (--map
+                 (jsdoc--parse-param it)
+                 (treesit-node-children param t))))
     ("rest_pattern"
      (list
       :name (treesit-node-text (treesit-node-child param 0 t))
       :type "...*"))
     ;; TypeScript parameter types. :type is not needed but I just add it anyway
     ((or "required_parameter" "optional_parameter")
-     (list
-      :name (treesit-node-text (treesit-node-child param 0 t))
-      :type (treesit-node-text (treesit-node-child
-                                (treesit-node-child-by-field-name param "type") 0 t))))))
+     (let ((x (jsdoc--parse-param (treesit-node-child param 0 t))))
+       (list
+        :name (plist-get x :name)
+        :children (plist-get x :children)
+        :type (treesit-node-text
+               (treesit-node-child
+                (treesit-node-child-by-field-name param "type") 0 t)))))))
 
 (defun jsdoc--infer-type (node)
   (pcase (treesit-node-type node)
