@@ -202,6 +202,7 @@
     ("call_expression" (jsdoc--infer-type (treesit-node-child node 0 t)))
     ("arrow_function" (jsdoc--infer-closure-type node))
     ("binary_expression" (jsdoc--infer-binary-expression node))
+    ("unary_expression" (jsdoc--infer-unary-expression node))
     (_ "*")))
 
 (defun jsdoc--infer-closure-type (node)
@@ -222,8 +223,21 @@
         (concat "(" params ")" "[]")
       (concat params "[]"))))
 
-(defun jsdoc--infer-binary-expression (_node)
-  (format "TODO"))
+;; TODO: Expand the inference
+;; https://stackoverflow.com/questions/12122293/list-of-all-binary-operators-in-javascript
+(defun jsdoc--infer-binary-expression (node)
+  (pcase (treesit-node-text (treesit-node-child-by-field-name node "operator"))
+    ((or ">" "<" "==" "===") "boolean")
+    ("-" "number")
+    ("+" (jsdoc--infer-type (treesit-node-child-by-field-name node "left")))
+    (_ "*")))
+
+;; TODO: Expand the inference
+;; https://www.digitalocean.com/community/tutorials/javascript-unary-operators-simple-and-useful#summary-of-all-unary-operators
+(defun jsdoc--infer-unary-expression (node)
+  (pcase (treesit-node-text (treesit-node-child-by-field-name node "operator"))
+    ("!" "boolean")
+    (_ "*")))
 
 (defun jsdoc--infer-identifier (node)
   "Return given identifier NODE type.  `X' if `X()', otherwise `*'."
