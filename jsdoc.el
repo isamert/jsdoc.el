@@ -125,7 +125,7 @@
     (pcase curr-node-type
       ("lexical_declaration"
        (jsdoc--parse-lexical-declaration curr-node))
-      ((or "function_declaration" "method_definition" "function" "arrow_function")
+      ((or "function_declaration" "method_definition" "function" "arrow_function" "function_expression")
        (jsdoc--parse-generic-function-declaration curr-node)))))
 
 (defun jsdoc--parse-lexical-declaration (node)
