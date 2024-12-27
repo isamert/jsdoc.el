@@ -48,8 +48,13 @@
   "Insert a JSDoc function comment or a typedef for an object."
   (interactive)
   (let* ((meta (jsdoc--generate))
-         (col (current-indentation))
-         (params (plist-get meta :params))
+         (col (current-indentation)))
+    (pcase (plist-get meta :doc-kind)
+      ('function (jsdoc--print-function-doc meta col))
+      ('typedef (jsdoc--print-typedef-doc meta col)))))
+
+(defun jsdoc--print-function-doc (meta col)
+  (let* ((params (plist-get meta :params))
          (type-params (plist-get meta :type-params))
          (returns (plist-get meta :returns))
          (throws (plist-get meta :throws)))
@@ -59,7 +64,7 @@
     (-each params
       (lambda (param)
         (jsdoc--insert-line col 'mid 'param param)
-        (when-let (children (plist-get param :children))
+        (when-let* ((children (plist-get param :children)))
           (--each children
             (jsdoc--insert-line col 'mid 'param `(:name ,(format "%s.%s" (plist-get param :name) (plist-get it :name)) ,@it))))))
     (when type-params
@@ -71,7 +76,30 @@
       (when (jsdoc--typescript?)
         (jsdoc--insert-line col 'mid 'throws throws)
         (jsdoc--insert-line col 'empty nil)))
-    (jsdoc--insert-line col 'end nil)))
+    (jsdoc--insert-line col 'end nil)) )
+
+;; TODO: This only prints out one-liner types, like {hasPower:
+;; boolean, hasWisdom: boolean}, but I would also like to have the
+;; following form:
+;;
+;; /**
+;;  *
+;;  * @typedef {Object}  -
+;;  * @property {boolean} hasPower -
+;;  * @property {boolean} hasWisdom -
+;;  */
+;;
+;; See https://jsdoc.app/tags-typedef
+;;
+;; We are already doing something similar with object params in
+;; `jsdoc--print-function-doc'.
+(defun jsdoc--print-typedef-doc (meta col)
+  (let* ((type (plist-get meta :type)))
+    (jsdoc--insert-line col 'beg nil)
+    (jsdoc--insert-line col 'empty nil)
+    (when type
+      (jsdoc--insert-line col 'mid 'typedef type))
+    (jsdoc--insert-line col 'end nil)) )
 
 ;; Some important resources:
 ;; https://github.com/tree-sitter/tree-sitter-javascript/blob/master/src/grammar.json
@@ -93,6 +121,7 @@
                      ('returns (if (jsdoc--typescript?)
                                    (format "@returns ")
                                  (format "@returns {%s} " it)))
+                     ('typedef (format "@typedef {%s} " it))
                      ('typeParam (format "@typeParam %s " it))))
          (tag-text-fixed (if (and jsdoc-append-dash tag-text)
                              (s-concat tag-text "- ")
@@ -129,12 +158,14 @@
        (jsdoc--parse-generic-function-declaration curr-node)))))
 
 (defun jsdoc--parse-lexical-declaration (node)
-  (let* ((fn-def (treesit-node-child node 0 t))
-         (name (jsdoc--tsc-child-text fn-def "name"))
-         (fn (treesit-node-child fn-def 1 t))
-         (fn-type (treesit-node-type fn)))
-    (pcase fn-type
-      ((or "arrow_function" "function") (jsdoc--parse-generic-function fn name)))))
+  (let* ((def (treesit-node-child node 0 t))
+         (name (jsdoc--tsc-child-text def "name"))
+         (value (treesit-node-child (treesit-node-child node 0 t) 1 t))
+         (value-type (treesit-node-type (treesit-node-child (treesit-node-child node 0 t) 1 t))))
+    (pcase value-type
+      ((or "arrow_function" "function") (jsdoc--parse-generic-function value name))
+      ("object" (jsdoc--parse-object value name))
+      (other (user-error "Can't document object of type: %s" other)))))
 
 (defun jsdoc--parse-generic-function-declaration (node)
   (let* ((name (jsdoc--tsc-child-text node "name")))
@@ -145,6 +176,7 @@
     (list
      :name name
      :returns (jsdoc--get-return-type fn)
+     :doc-kind 'function
      ;; TODO This should be a list, a function can throw multiple
      ;; exceptions
      :throws (jsdoc--get-throw-type fn)
@@ -158,6 +190,11 @@
                        treesit-node-children
                        (-drop 1)
                        (-drop-last 1)))))))
+
+(defun jsdoc--parse-object (node name)
+  (list
+   :doc-kind 'typedef
+   :type (jsdoc--infer-type node)))
 
 (defun jsdoc--parse-param (param)
   "Parse PARAM and return it's name with type and the default value if it exists."
@@ -213,7 +250,8 @@
     ("number" "number")
     ("string" "string")
     ("array" "*[]")
-    ("object" "object")
+    ("object" (jsdoc--infer-object node))
+    ("pair" (jsdoc--infer-type (treesit-node-child-by-field-name node "value")))
     ("new_expression" (jsdoc--infer-type (treesit-node-child node 0 t)))
     ("call_expression" (jsdoc--infer-type (treesit-node-child node 0 t)))
     ("arrow_function" (jsdoc--infer-closure-type node))
@@ -256,13 +294,29 @@
     (_ "*")))
 
 (defun jsdoc--infer-identifier (node)
-  "Return given identifier NODE type.  `X' if `X()', otherwise `*'."
+  "Return given identifier NODE type.
+`X' if `X()', otherwise `*'."
   (let* ((next-sibling (treesit-node-next-sibling node t)))
     (if (and next-sibling
              (equal (treesit-node-type next-sibling) "arguments")
              (s-uppercase? (substring (treesit-node-text node) 0 1)))
         (treesit-node-text node)
       "*")))
+
+(defun jsdoc--infer-object (node)
+  (let ((pairs (--map
+                (list
+                 :key
+                 (substring-no-properties (treesit-node-text (treesit-node-child-by-field-name it "key")))
+                 :type
+                 (jsdoc--infer-type it))
+                (treesit-node-children node :collect-named))))
+    ;; TODO: if all pair types are same, then convert into {Object.<string, TYPE>}
+    ;; TODO: check if buffer has already a @param or @typedef definition for this object?
+    (concat
+     "{ "
+     (s-join ", " (--map (concat (plist-get it :key) ": " (plist-get it :type)) pairs))
+     " }")))
 
 (defun jsdoc--get-return-type (node)
   "Return the return type of given NODE."
