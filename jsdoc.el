@@ -4,7 +4,7 @@
 ;; Copyright (C) 2023 Demis Balbach, Isa Mert Gurbuz
 
 ;; Author: Isa Mert Gurbuz <isamertgurbuz@gmail.com>
-;; Version: 0.3
+;; Version: 0.4.0
 ;; URL: https://github.com/isamert/jsdoc.el
 ;; Package-Requires: ((emacs "29.1") (dash "2.11.0") (s "1.12.0"))
 
